@@ -16,4 +16,4 @@ api = API(BOT_TOKEN)
 labeler = BotLabeler()
 state_dispenser = BuiltinStateDispenser()
 
-moodle = Moodle(MOODLE_URL, MOODLE_TOKEN)
+moodle = Moodle(MOODLE_URL + '/webservice/rest/server.php', MOODLE_TOKEN)
