@@ -11,9 +11,35 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
 from sqlalchemy import Column
 from sqlalchemy import Table
+from sqlalchemy.orm import Session
 
 class Base(DeclarativeBase):
-    pass
+    __abstract__ = True
+
+    @classmethod
+    def create(cls, session: Session, **kwargs):
+        instance = cls(**kwargs)
+        session.add(instance)
+        session.commit()
+        return instance
+    
+    @classmethod
+    def read(cls, session: Session, id):
+        return session.query(cls).filter_by(id=id).first()
+
+    @classmethod
+    def update(cls, session: Session, id, **kwargs):
+        instance = session.query(cls).filter_by(id=id).first()
+        for attr, value in kwargs.items():
+            setattr(instance, attr, value)
+        session.commit()
+        return instance
+
+    @classmethod
+    def delete(cls, session: Session, id):
+        instance = session.query(cls).filter_by(id=id).first()
+        session.delete(instance)
+        session.commit()
 
 association_table = Table(
     "user_courses",
