@@ -69,4 +69,21 @@ async def password_handler(message: Message):
 
 	await message.answer("Вы успешно зарегистрированы \n Вам будут приходить сообщения о новых заданиях.")
 	await bot.state_dispenser.delete(message.peer_id)
+	await courses_handler(message)
+
+
+@labeler.message(regexp="(?i)курсы")
+async def courses_handler(message: Message):
+	db = next(get_db())
+	moodle.token = User.read(db, id=message.from_id).moodle_token
+
+	coursesMoodle = moodle.core.course.get_enrolled_courses_by_timeline_classification(classification="all")
+	if not coursesMoodle:
+		await message.answer("У вас нет курсов")
+		return
+
+	courses_text = 'Ваши курсы:\n'
+	for num, course in enumerate(coursesMoodle):
+		courses_text += f"{num + 1}⃣ {course.fullname} \n"
+	await message.answer(courses_text)
 
