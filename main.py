@@ -2,7 +2,7 @@ from moodle import Moodle
 from loguru import logger
 from vkbottle import Bot
 from vkbottle.bot import Message
-from vkbot.handlers import labelers
+from handlers import labelers
 from config import labeler, bot
 
 

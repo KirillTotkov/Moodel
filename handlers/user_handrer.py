@@ -19,6 +19,7 @@ async def start_handler(message: Message):
 	await message.answer("Привет! Я бот для уведомлений о новых заданиях в Moodle.")
 	db = next(get_db())
 	user = db.query(User).filter(User.id == message.from_id).first()
+	
 	if user:
 		await message.answer("Вы уже зарегистрированы")
 		return
