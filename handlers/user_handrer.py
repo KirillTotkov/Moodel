@@ -66,7 +66,16 @@ async def password_handler(message: Message):
 		await message.answer("Неверный логин или пароль")
 		return
 	
-	User.create(db, id=message.from_id, moodle_token=token_res)
+	user = User.create(db, id=message.from_id, moodle_token=token_res)
+
+	moodle.token = user.moodle_token
+	coursesMoodle = moodle.core.course.get_enrolled_courses_by_timeline_classification(classification="all")
+	courses = [
+		Course(
+			name=c.fullname
+		) for c in coursesMoodle
+	]	
+	user.add_courses(courses, db)
 
 	await message.answer("Вы успешно зарегистрированы \n Вам будут приходить сообщения о новых заданиях.")
 	await bot.state_dispenser.delete(message.peer_id)
@@ -76,12 +85,20 @@ async def password_handler(message: Message):
 @labeler.message(regexp="(?i)курсы")
 async def courses_handler(message: Message):
 	db = next(get_db())
-	moodle.token = User.read(db, id=message.from_id).moodle_token
+	user = User.get_or_none(db, id=message.from_id)
+	moodle.token = user.moodle_token
 
 	coursesMoodle = moodle.core.course.get_enrolled_courses_by_timeline_classification(classification="all")
 	if not coursesMoodle:
 		await message.answer("У вас нет курсов")
 		return
+
+	courses = [
+		Course(
+			name=c.fullname
+		) for c in coursesMoodle
+	]	
+	user.add_courses(courses, db)
 
 	courses_text = 'Ваши курсы:\n'
 	for num, course in enumerate(coursesMoodle):

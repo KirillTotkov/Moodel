@@ -24,8 +24,12 @@ class Base(DeclarativeBase):
         return instance
     
     @classmethod
-    def read(cls, session: Session, id):
+    def get_or_none(cls, session: Session, id):
         return session.query(cls).filter_by(id=id).first()
+    
+    @classmethod
+    def get_all(cls, session: Session):
+        return session.query(cls).all()
 
     @classmethod
     def update(cls, session: Session, id, **kwargs):
@@ -40,6 +44,7 @@ class Base(DeclarativeBase):
         instance = session.query(cls).filter_by(id=id).first()
         session.delete(instance)
         session.commit()
+    
 
 association_table = Table(
     "user_courses",
@@ -54,6 +59,19 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     moodle_token: Mapped[str] = mapped_column(String(200))
     courses: Mapped[List['Course']] = relationship(secondary=association_table)
+
+    def add_courses(self, courses, session: Session):
+        for course in courses:
+            "Проверить существует ли курс"
+            if not Course.get_or_none(id=course.id, session=session):
+                session.add(course)
+                session.commit()
+
+            """Если курс не привязан к пользователю, то привязываем"""
+            if course not in self.courses:
+                db_course = course.get_or_none(id=course.id, session=session)
+                self.courses.append(db_course)
+                session.commit()
     
 
 class Course(Base):
