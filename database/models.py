@@ -49,8 +49,8 @@ class Base(DeclarativeBase):
 association_table = Table(
     "user_courses",
     Base.metadata,
-    Column("user_id", ForeignKey("users.id")),
-    Column("course_id", ForeignKey("courses.id")),
+    Column("user_id", ForeignKey("users.id", ondelete="CASCADE")),
+    Column("course_id", ForeignKey("courses.id", ondelete="CASCADE")),
 )
 
 class User(Base):
@@ -79,7 +79,7 @@ class Course(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    tasks: Mapped[List['Tasks']] = relationship()
+    tasks: Mapped[List['Tasks']] = relationship(cascade="all, delete")
 
 class Tasks(Base):
     __tablename__ = 'tasks'
