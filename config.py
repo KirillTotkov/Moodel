@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from vkbottle import API, Bot, BuiltinStateDispenser, DocMessagesUploader
 from vkbottle.bot import BotLabeler
 from moodle import Moodle
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 load_dotenv()
 
@@ -23,3 +24,5 @@ bot = Bot(
 uploader = DocMessagesUploader(bot.api)
 
 moodle = Moodle(MOODLE_URL + '/webservice/rest/server.php', "")
+
+scheduler = AsyncIOScheduler()

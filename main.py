@@ -1,12 +1,33 @@
-from moodle import Moodle
 from loguru import logger
-from vkbottle import Bot
-from vkbottle.bot import Message
 from handlers import labelers
-from config import labeler, bot
-
+from config import labeler, bot, scheduler
+from database.sessions import get_db
+from database.models import User
+from handlers.user_handrer import send_new_courses, tasks_handler
 
 for labeler in labelers:
     bot.labeler.load(labeler)
 
+    
+@scheduler.scheduled_job('interval', seconds=10, id='tasks')
+async def main():
+    db = next(get_db())
+    all_users = User.get_all(db)
+    
+    all_tasks = set()
+        
+    for user in all_users:
+        await send_new_courses(user)
+        tasks = await tasks_handler(user.id)
+        all_tasks.update(tasks)
+        
+    db = next(get_db())
+    
+    for task in all_tasks:
+        db.add(task)
+    db.commit()
+    
+
+    
+scheduler.start()
 bot.run_forever()
