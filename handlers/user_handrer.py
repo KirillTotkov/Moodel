@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+import random
 import aiohttp
 from vkbottle.bot import Message
 from vkbottle import BaseStateGroup
@@ -115,6 +117,29 @@ async def courses_handler(message: Message):
 	await message.answer(courses_text)
 
 
+async def send_new_courses(user: User):
+	courses = user.courses
+ 
+	moodle.token = user.moodle_token
+	coursesMoodle = moodle.core.course.get_enrolled_courses_by_timeline_classification(classification="all")
+
+	course_db_ids = [c.id for c in courses]
+ 
+	new_courses = []
+ 
+	db = next(get_db())
+ 
+	for course in coursesMoodle:
+		if course.id in course_db_ids: continue
+
+		new_course = Course.create(db, id=course.id, name=course.fullname)
+		new_courses.append(new_course)
+
+		await bot.api.messages.send(user_id=user.id, random_id=0, message=f"Новый курс:\n {course.fullname}")
+  
+	return new_courses
+			
+
 def _parse_task_description(task: Module) -> str:
     if task.description:
         soup = BeautifulSoup(task.description, 'html.parser')
@@ -139,27 +164,26 @@ def get_task_text(task: Module, cource_name: str) -> str:
 		text += f"Гиперссылка: {task.contents[0].fileurl.replace('forcedownload=1', '')}\n"
 	return text
 
-async def download_and_upload_file(file_url: str, file_name: str, message: Message):
+async def download_and_upload_file(file_url: str, file_name: str, peer_id: int):
     async with aiohttp.ClientSession() as session:
         async with session.get(file_url) as resp:
             file_content = await resp.read()
-    doc = await uploader.upload(file_source=file_content, peer_id=message.peer_id, title=file_name)
+    doc = await uploader.upload(file_source=file_content, peer_id=peer_id, title=file_name)
     return doc
 
 
-@labeler.message(regexp="(?i)задания")
-async def tasks_handler(message: Message):
+async def tasks_handler(user_id: int) -> list[Tasks]:
 	db = next(get_db())
-	user = User.get_or_none(db, id=message.from_id)
+	user = User.get_or_none(db, id=user_id)
 	if user is None: return
-
+  
 	moodle.token = user.moodle_token
 
 	courses = user.courses
-	if not courses:
-		await message.answer("У вас нет курсов")
-		return
+	if not courses: return
 
+	new_tasks = []
+ 
 	for course in courses:
 		tasks_moodle = moodle.core.course.get_contents(course.id)
 		tasks_db_ids = [task.id for task in db.query(Tasks).filter_by(course_id= course.id).all()]
@@ -169,17 +193,22 @@ async def tasks_handler(message: Message):
 				if task.modplural == "Форумы" or task.id in tasks_db_ids:
 					continue
 				
-				Tasks.create(db, id=task.id, course_id=course.id)
-		
+				t = Tasks(id=task.id, course_id=course.id)
+				new_tasks.append(t)
+
 				task_text= get_task_text(task, course.name)
     
 				if task.modplural == 'Файлы':
 					file_url = task.contents[0].fileurl + '&token=' + moodle.token
 					file_name = task.contents[0].filename
      
-					doc = await download_and_upload_file(file_url, file_name, message)
-					await message.answer(task_text, attachment=doc)
+					doc = await download_and_upload_file(file_url, file_name, user_id)
+     
+					await bot.api.messages.send(user_id=user_id, message=task_text, attachment=doc, random_id=0)
 
 					continue
 				
-				await message.answer(task_text)
+				await bot.api.messages.send(user_id=user_id, message=task_text, random_id=0)
+
+    
+	return new_tasks
