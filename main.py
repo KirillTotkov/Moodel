@@ -1,7 +1,7 @@
 from loguru import logger
 from handlers import labelers
 from config import labeler, bot, scheduler
-from database.sessions import get_db
+from database.sessions import get_db, create
 from database.models import User
 from handlers.user_handrer import send_new_courses, tasks_handler
 
@@ -27,7 +27,8 @@ async def main():
         db.add(task)
     db.commit()
     
-
+if __name__ == "__main__":
+    create()
+    scheduler.start()
+    bot.run_forever()
     
-scheduler.start()
-bot.run_forever()
