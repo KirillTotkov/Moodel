@@ -48,9 +48,12 @@ async def login_handler(message: Message):
 	login = message.text
 
 	ctx_storage.set(message.peer_id, login)
-
+ 
 	await message.answer("Пароль:")
+
 	await bot.state_dispenser.set(message.peer_id, LoginStates.AWAITING_PASSWORD)
+	
+	await bot.api.messages.delete(message_ids=[message.id], peer_id=message.peer_id)
 
 
 
@@ -61,19 +64,24 @@ async def password_handler(message: Message):
 	if user:
 		await message.answer("Вы уже зарегистрированы")
 		return
-	
+
 
 	login = ctx_storage.get(message.peer_id)
 	password = message.text
 
 	token_res = moodle.get_tokens(MOODLE_URL, login, password).get('token')
 	ctx_storage.delete(message.peer_id)
-
+ 
+	id = message.from_id
+ 
 	if token_res is None:
+		await bot.api.messages.delete(message_ids=[message.id], peer_id=message.peer_id)
 		await message.answer("Неверный логин или пароль")
 		return
-	
-	user = User.create(db, id=message.from_id, moodle_token=token_res)
+
+	await bot.api.messages.delete(message_ids=[message.id], peer_id=message.peer_id)
+
+	user = User.create(db, id=id, moodle_token=token_res)
 
 	moodle.token = user.moodle_token
 	coursesMoodle = moodle.core.course.get_enrolled_courses_by_timeline_classification(classification="all")
