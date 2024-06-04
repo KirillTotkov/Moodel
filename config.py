@@ -4,6 +4,11 @@ from vkbottle import API, Bot, BuiltinStateDispenser, DocMessagesUploader
 from vkbottle.bot import BotLabeler
 from moodle import Moodle
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import sys
+from loguru import logger
+logger.remove()
+logger.add(sys.stderr, level="INFO")
+
 
 load_dotenv()
 

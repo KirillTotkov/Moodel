@@ -9,7 +9,7 @@ for labeler in labelers:
     bot.labeler.load(labeler)
 
     
-@scheduler.scheduled_job('interval', seconds=10, id='tasks')
+@scheduler.scheduled_job('interval', seconds=30, id='tasks')
 async def main():
     db = next(get_db())
     all_users = User.get_all(db)
