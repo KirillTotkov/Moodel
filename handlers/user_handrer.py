@@ -21,18 +21,19 @@ ctx_storage = CtxStorage()
 
 
 @labeler.message(payload={"command": "start"})
-@labeler.message(text=["Начать", "Привет", "Hi"])
+@labeler.message(text=["Начать", "начать", "Привет", "Привет", "Старт", "старт", "Hi", "hi"])
 async def start_handler(message: Message):
 	await message.answer("Привет! Я бот для уведомлений о новых заданиях в Moodle.")
 	db = next(get_db())
 	user = db.query(User).filter(User.id == message.from_id).first()
-	
+	db.close()
+ 
 	if user:
 		await message.answer("Вы уже зарегистрированы")
 		return
 	
 	await message.answer("Для начала работы, введите логин и пароль от Moodle. \n"
-                         "Для отмены введите /cancel")
+                         "Для отмены введите 'Отмена'")
 	await message.answer("Логин:")
 	 
 	await bot.state_dispenser.set(message.peer_id, LoginStates.AWAITING_LOGIN)
@@ -40,13 +41,21 @@ async def start_handler(message: Message):
 
 @labeler.message(state=LoginStates.AWAITING_LOGIN)
 async def login_handler(message: Message):
+	if message.text.lower() == "отмена":
+		await bot.state_dispenser.delete(message.peer_id)
+		await message.answer("Вход отменен")
+		return
+
 	db = next(get_db())
 	user = db.query(User).filter(User.id == message.from_id).first()
+	db.close()
+ 
 	if user:
 		await message.answer("Вы уже зарегистрированы")
 		return
-	login = message.text
 
+	login = message.text
+	
 	ctx_storage.set(message.peer_id, login)
  
 	await message.answer("Пароль:")
@@ -54,17 +63,22 @@ async def login_handler(message: Message):
 	await bot.state_dispenser.set(message.peer_id, LoginStates.AWAITING_PASSWORD)
 	
 	await bot.api.messages.delete(message_ids=[message.id], peer_id=message.peer_id)
-
+ 
 
 
 @labeler.message(state=LoginStates.AWAITING_PASSWORD)
 async def password_handler(message: Message):
+	if message.text.lower() == "отмена":
+		await bot.state_dispenser.delete(message.peer_id)
+		await message.answer("Вход отменен")
+		return
+    
 	db = next(get_db())
 	user = db.query(User).filter(User.id == message.from_id).first()
 	if user:
+		db.close()
 		await message.answer("Вы уже зарегистрированы")
 		return
-
 
 	login = ctx_storage.get(message.peer_id)
 	password = message.text
@@ -100,7 +114,8 @@ async def password_handler(message: Message):
 				if task.modplural == "Форумы": continue
 				Tasks.create(db, id=task.id, course_id=cource.id)
 
-
+	db.close()
+ 
 	await message.answer("Вы успешно зарегистрированы \n Вам будут приходить сообщения о новых заданиях.")
 	await bot.state_dispenser.delete(message.peer_id)
 	await courses_handler(message)
@@ -110,7 +125,11 @@ async def password_handler(message: Message):
 async def courses_handler(message: Message):
 	db = next(get_db())
 	user = User.get_or_none(db, id=message.from_id)
-	if user is None: return
+	db.close()
+ 
+	if not user:
+		await message.answer("Вы не зарегистрированы")
+		return
 
 	moodle.token = user.moodle_token
 
@@ -123,6 +142,24 @@ async def courses_handler(message: Message):
 	for num, course in enumerate(coursesMoodle):
 		courses_text += f"{num + 1}⃣ {course.fullname} \n"
 	await message.answer(courses_text)
+
+
+@labeler.message(text=["Удалить аккаунт", "удалить аккаунт"])
+async def delete_account_handler(message: Message):
+	db = next(get_db())
+	user = db.query(User).filter(User.id == message.from_id).first()
+
+	if not user:
+		await message.answer("Вы не зарегистрированы")
+		return
+ 
+	user.remove_courses(db)
+
+	db.delete(user)
+	db.commit()
+	db.close()
+
+	await message.answer("Ваш аккаунт успешно удален")
 
 
 async def send_new_courses(user: User):
@@ -145,6 +182,8 @@ async def send_new_courses(user: User):
 
 		await bot.api.messages.send(user_id=user.id, random_id=0, message=f"Новый курс:\n {course.fullname}")
   
+	db.close()
+ 
 	return new_courses
 			
 
@@ -183,12 +222,16 @@ async def download_and_upload_file(file_url: str, file_name: str, peer_id: int):
 async def tasks_handler(user_id: int) -> list[Tasks]:
 	db = next(get_db())
 	user = User.get_or_none(db, id=user_id)
-	if user is None: return
+	if user is None: 
+		db.close()
+		return
   
 	moodle.token = user.moodle_token
 
 	courses = user.courses
-	if not courses: return
+	if not courses:
+		db.close()
+		return
 
 	new_tasks = []
  
@@ -218,5 +261,6 @@ async def tasks_handler(user_id: int) -> list[Tasks]:
 				
 				await bot.api.messages.send(user_id=user_id, message=task_text, random_id=0)
 
+	db.close()
     
 	return new_tasks

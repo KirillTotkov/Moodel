@@ -58,7 +58,8 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     moodle_token: Mapped[str] = mapped_column(String(200))
-    courses: Mapped[List['Course']] = relationship(secondary=association_table)
+    courses: Mapped[List['Course']] = relationship(secondary=association_table, backref='users', lazy='selectin',
+                           )
 
     def add_courses(self, courses, session: Session):
         for course in courses:
@@ -72,7 +73,21 @@ class User(Base):
                 db_course = course.get_or_none(id=course.id, session=session)
                 self.courses.append(db_course)
                 session.commit()
+                
+    def remove_courses(self, session: Session):
+        """Удаляем все курсы пользователя"""
+        self.courses = []
+        session.commit()
+        
+        """Удаляем все курсы, которые не привязаны ни к одному пользователю"""
+        courses = session.query(Course).filter(~Course.users.any()).all()
+        for course in courses:
+            session.delete(course)
+            
+        session.commit()
     
+        
+
 
 class Course(Base):
     __tablename__ = 'courses'
